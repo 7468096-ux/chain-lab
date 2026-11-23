@@ -1,0 +1,107 @@
+# On every push to main: build, deploy to Cloudflare Pages (project "chain-lab"), then check the live site.
+#
+# Repo secrets:   CLOUDFLARE_API_TOKEN  (permission: Account → Cloudflare Pages → Edit)
+#                 ETH_RPC_URL           (optional; an Ethereum RPC with a key, e.g. Alchemy — wins over the variable)
+# Repo variables: CLOUDFLARE_ACCOUNT_ID (optional; without it wrangler uses the token's account)
+#                 ETH_RPC_URL           (keyless fallback RPC)
+#                 SITE_URL              (public origin for canonical/hreflang/OG/sitemap)
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+env:
+  PROJECT: chain-lab
+  SITE_URL: ${{ vars.SITE_URL || 'https://chain-lab-e17.pages.dev' }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
+      - name: Cloudflare credentials
+        env:
+          RAW_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          RAW_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID || vars.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          token="$(printf '%s' "$RAW_TOKEN" | tr -d '[:space:]')"
+          [ -n "$token" ] || { echo "::error::Add the CLOUDFLARE_API_TOKEN repo secret (Cloudflare Pages: Edit)"; exit 1; }
+          echo "::add-mask::$token"; echo "CLOUDFLARE_API_TOKEN=$token" >> "$GITHUB_ENV"
+          acct="$(printf '%s' "$RAW_ACCOUNT" | tr -d '[:space:]')"
+          if [ -n "$acct" ]; then echo "CLOUDFLARE_ACCOUNT_ID=$acct" >> "$GITHUB_ENV"; fi
+
+      - name: Set ETH_RPC_URL for the Pages Function
+        env:
+          ETH_RPC_URL: ${{ secrets.ETH_RPC_URL || vars.ETH_RPC_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "$ETH_RPC_URL" ]; then
+            echo "::warning::ETH_RPC_URL is not set: Ethereum lookups will answer 'service unavailable'"
+            exit 0
+          fi
+          echo "::add-mask::$ETH_RPC_URL"
+          printf '%s' "$ETH_RPC_URL" | npx wrangler pages secret put ETH_RPC_URL --project-name "$PROJECT" >/dev/null
+
+      - name: Deploy to Cloudflare Pages
+        run: |
+          set -euo pipefail
+          # Run from the repo root so wrangler bundles ./functions along with dist/
+          npx wrangler pages deploy dist --project-name "$PROJECT" --branch main \
+            --commit-hash "$GITHUB_SHA" --commit-message "${GITHUB_SHA::7}" --commit-dirty=true
+
+      - name: Check the live site
+        run: |
+          set -euo pipefail
+          URL="$SITE_URL"
+          # Wait until this very build answers: the main script name changes with every build
+          want="$(grep -oE '/assets/index-[A-Za-z0-9_-]+\.js' dist/en/index.html | head -1)"
+          for i in $(seq 1 36); do
+            curl -s "$URL/en/" -o /tmp/en.html || true
+            grep -q "$want" /tmp/en.html && break
+            echo "waiting for $want at $URL/en/ ($i)…"; sleep 5
+          done
+          grep -q "$want" /tmp/en.html || { echo "::error::$URL/en/ does not serve this build"; exit 1; }
+
+          fail() { echo "::error::$1"; exit 1; }
+          curl -s "$URL/ru/" | grep -q 'Посмотри, как <em>блокчейн</em> запоминает' || fail "/ru/ has no Russian text in the HTML"
+          grep -q "og-en.png" /tmp/en.html || fail "/en/ has no OG image tag"
+          loc="$(curl -s -o /dev/null -w '%{redirect_url}' -H 'Accept-Language: ru-RU,ru;q=0.9' "$URL/")"
+          [ "$loc" = "$URL/ru/" ] || fail "/ with Accept-Language ru goes to '$loc'"
+          loc="$(curl -s -o /dev/null -w '%{redirect_url}' -H 'Accept-Language: en-US' "$URL/")"
+          [ "$loc" = "$URL/en/" ] || fail "/ with Accept-Language en goes to '$loc'"
+          hdrs="$(curl -sI "$URL/en/")"
+          for h in content-security-policy x-content-type-options referrer-policy; do
+            grep -qi "^$h:" <<< "$hdrs" || fail "missing header $h"
+          done
+          for p in /sitemap.xml /robots.txt /og-en.png /og-ru.png; do
+            [ "$(curl -s -o /dev/null -w '%{http_code}' "$URL$p")" = 200 ] || fail "$p is not 200"
+          done
+
+          pizza=a1075db55d416d3ca199f55b6084e2115b9345e16c5cf302fc80e9d5fbf5d48d
+          code="$(curl -s -o /tmp/tx.json -w '%{http_code}' "$URL/api/tx?id=$pizza")"
+          [ "$code" = 200 ] && grep -q '"block":{"number":57043' /tmp/tx.json || fail "/api/tx pizza: HTTP $code $(head -c 200 /tmp/tx.json)"
+          cache="$(curl -s -D - -o /dev/null "$URL/api/tx?id=$pizza" | grep -i '^x-cache:' | tr -d '\r' | awk '{print $2}')"
+          [ "$cache" = HIT ] || echo "::warning::second /api/tx request was not served from the cache (X-Cache: ${cache:-none})"
+          [ "$(curl -s -o /dev/null -w '%{http_code}' "$URL/api/tx?id=hello")" = 400 ] || fail "/api/tx bad id is not 400"
+          eth=0x5c504ed432cb51138bcf09aa5e8a410dd4a1e204ef84bfed1be16dfba1b22060
+          code="$(curl -s -o /tmp/eth.json -w '%{http_code}' "$URL/api/tx?id=$eth")"
+          [ "$code" = 200 ] || echo "::warning::/api/tx Ethereum example: HTTP $code $(head -c 200 /tmp/eth.json)"
+
+          { echo "### Live at $URL"; echo "Pages, redirect, headers, sitemap, OG images and /api/tx checked. Cache on repeat: ${cache:-none}."; } | tee -a "$GITHUB_STEP_SUMMARY"

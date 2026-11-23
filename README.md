@@ -18,8 +18,13 @@ npm run og          # re-render public/og-en.png and og-ru.png with local Chrome
 
 | Variable | Where | Purpose |
 | --- | --- | --- |
-| `ETH_RPC_URL` | Pages project → Settings → Variables (production); `.dev.vars` locally | Ethereum mainnet JSON-RPC endpoint for `/api/tx`. Use a provider with full transaction history (Alchemy, Infura, QuickNode…). |
-| `SITE_URL` | Pages build environment | Absolute origin for canonical, hreflang, Open Graph and sitemap. Defaults to `https://chain-lab.pages.dev`. |
+| `CLOUDFLARE_API_TOKEN` | GitHub repo secret | Lets `.github/workflows/deploy.yml` deploy (permission: Cloudflare Pages → Edit). |
+| `ETH_RPC_URL` | GitHub repo secret (with a key) or variable (keyless); `.dev.vars` locally | Ethereum mainnet JSON-RPC endpoint for `/api/tx`; the workflow stores it as a Pages secret. Prefer a provider with full transaction history (Alchemy, Infura, QuickNode…). |
+| `SITE_URL` | GitHub repo variable | Absolute origin for canonical, hreflang, Open Graph and sitemap. Defaults to `https://chain-lab-e17.pages.dev`. |
+
+## Deploy
+
+Every push to `main` runs `.github/workflows/deploy.yml`: build, `wrangler pages deploy` to the Pages project `chain-lab`, then a live check (pages, redirect, headers, sitemap, OG images, `/api/tx`).
 
 Copy `.dev.vars.example` to `.dev.vars` for local runs. Never commit real keys.
 

@@ -4,7 +4,7 @@ import { readFileSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
 import { pathToFileURL } from "node:url";
 import { resolve } from "node:path";
 
-const SITE = (process.env.SITE_URL || "https://chain-lab.pages.dev").replace(/\/+$/, "");
+const SITE = (process.env.SITE_URL || "https://chain-lab-e17.pages.dev").replace(/\/+$/, "");
 const dist = resolve("dist");
 const { render, head, LANGS } = await import(pathToFileURL(resolve("dist-ssr/entry-server.js")).href);
 

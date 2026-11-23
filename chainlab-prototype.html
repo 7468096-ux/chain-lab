@@ -1,0 +1,1022 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chain Lab</title>
+<meta name="description" content="Interactive lab: see how a blockchain works — hashes, blocks, mining, tokens. English and Russian.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  /* Layout idea: a ledger page. Left-aligned editorial column, blocks drawn as ruled ledger cards, hashes always in mono. */
+  --ink: #0d1117;
+  --panel: #151b24;
+  --rule: #263040;
+  --paper: #e8e4da;
+  --muted: #8b95a5;
+  --gold: #e3b341;
+  --ok: #3fb950;
+  --bad: #f0605a;
+  --font-display: "Unbounded", "Arial Black", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--ink);
+  color: var(--paper);
+  font: 16px/1.6 var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--gold); }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
+
+/* Header */
+header { border-bottom: 1px solid var(--rule); }
+.bar { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 20px; max-width: 1080px; margin: 0 auto; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand svg { flex: none; }
+.brand b { font: 700 16px/1.1 var(--font-display); letter-spacing: .02em; display: block; }
+.brand small { color: var(--muted); font-size: 12px; }
+.bar-right { display: flex; align-items: center; gap: 10px; }
+.lang { display: flex; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; }
+.lang button { background: none; border: 0; color: var(--muted); font: 500 12px var(--font-mono); padding: 6px 10px; cursor: pointer; }
+.lang button[aria-pressed="true"] { background: var(--gold); color: var(--ink); }
+.ghost { background: none; border: 1px solid var(--rule); color: var(--paper); border-radius: 6px; padding: 7px 12px; font: 500 13px var(--font-body); cursor: pointer; text-decoration: none; }
+.ghost:hover { border-color: var(--gold); }
+
+/* Hero */
+.hero { padding: 56px 0 32px; display: grid; gap: 18px; }
+.eyebrow { font: 500 12px var(--font-mono); color: var(--gold); letter-spacing: .08em; text-transform: uppercase; }
+h1 { font: 700 clamp(30px, 5.4vw, 54px)/1.08 var(--font-display); margin: 0; max-width: 16ch; text-wrap: balance; }
+h1 em { font-style: normal; color: var(--gold); }
+.lede { color: var(--muted); font-size: 18px; max-width: 60ch; margin: 0; }
+
+/* Mode cards */
+.modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; padding-bottom: 40px; }
+.mode { display: grid; gap: 8px; text-align: left; background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; padding: 20px; color: var(--paper); font: inherit; cursor: pointer; text-decoration: none; }
+.mode:hover { border-color: var(--gold); }
+.mode[aria-disabled="true"] { cursor: default; opacity: .75; }
+.mode[aria-disabled="true"]:hover { border-color: var(--rule); }
+.mode h3 { margin: 0; font: 600 18px var(--font-body); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.mode p { margin: 0; color: var(--muted); font-size: 15px; }
+.pill { font: 500 11px var(--font-mono); padding: 2px 8px; border-radius: 99px; border: 1px solid currentColor; letter-spacing: .04em; }
+.pill.live { color: var(--ok); }
+.pill.soon { color: var(--muted); }
+
+/* Section heads */
+section { padding: 40px 0; border-top: 1px solid var(--rule); }
+h2 { font: 700 clamp(22px, 3vw, 30px)/1.2 var(--font-display); margin: 0 0 8px; text-wrap: balance; }
+.sub { color: var(--muted); margin: 0 0 24px; max-width: 62ch; }
+
+/* Block demo */
+.lab { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 820px) { .lab { grid-template-columns: 1fr; } }
+.block { background: var(--panel); border: 1px solid var(--rule); border-left: 4px solid var(--bad); border-radius: 10px; overflow: hidden; transition: border-color .2s; }
+.block.valid { border-left-color: var(--ok); }
+.block-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: 1px solid var(--rule); flex-wrap: wrap; }
+.block-head b { font: 500 14px var(--font-mono); }
+.status { font: 500 12px var(--font-mono); padding: 3px 10px; border-radius: 99px; }
+.status.valid { background: rgba(63,185,80,.15); color: var(--ok); }
+.status.invalid { background: rgba(240,96,90,.15); color: var(--bad); }
+.row { display: grid; grid-template-columns: 110px minmax(0, 1fr); border-bottom: 1px solid var(--rule); }
+.row:last-child { border-bottom: 0; }
+.row label, .row .k { padding: 12px 16px; color: var(--muted); font: 500 12px var(--font-mono); text-transform: uppercase; letter-spacing: .05em; border-right: 1px solid var(--rule); }
+.row .v { padding: 10px 16px; min-width: 0; }
+@media (max-width: 480px) { .row { grid-template-columns: 1fr; } .row label, .row .k { border-right: 0; padding-bottom: 0; } }
+textarea, input[type="number"] { width: 100%; background: var(--ink); color: var(--paper); border: 1px solid var(--rule); border-radius: 6px; padding: 8px 10px; font: 14px/1.5 var(--font-mono); resize: vertical; }
+textarea:focus, input:focus { border-color: var(--gold); outline: none; }
+.hash { font: 13px/1.5 var(--font-mono); word-break: break-all; color: var(--paper); }
+.hash .z { color: var(--ok); }
+.hash.prev { color: var(--muted); }
+.warn { display: none; margin-top: 8px; padding: 10px 12px; border-radius: 6px; background: rgba(240,96,90,.12); border: 1px solid var(--bad); color: var(--paper); font-size: 14px; }
+.warn.show { display: block; }
+
+.side { display: grid; gap: 14px; }
+.card { background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; padding: 16px; display: grid; gap: 12px; }
+.card h4 { margin: 0; font: 600 15px var(--font-body); }
+.diff { display: flex; gap: 6px; flex-wrap: wrap; }
+.diff button { background: var(--ink); border: 1px solid var(--rule); color: var(--paper); border-radius: 6px; padding: 6px 12px; font: 500 13px var(--font-mono); cursor: pointer; }
+.diff button[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); }
+.primary { background: var(--gold); color: var(--ink); border: 0; border-radius: 6px; padding: 11px 16px; font: 600 15px var(--font-body); cursor: pointer; }
+.primary.stop { background: var(--bad); color: #fff; }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.stat { background: var(--ink); border: 1px solid var(--rule); border-radius: 6px; padding: 8px 10px; }
+.stat span { display: block; color: var(--muted); font: 500 11px var(--font-mono); text-transform: uppercase; }
+.stat b { font: 500 16px var(--font-mono); font-variant-numeric: tabular-nums; }
+.note { color: var(--muted); font-size: 14px; margin: 0; }
+
+/* Learn grid */
+.learn { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+.learn article { background: var(--panel); border: 1px solid var(--rule); border-radius: 10px; padding: 18px; display: grid; gap: 6px; align-content: start; }
+.learn .code { font: 500 12px var(--font-mono); color: var(--gold); }
+.learn h3 { margin: 0; font: 600 17px var(--font-body); }
+.learn p { margin: 0; color: var(--muted); font-size: 15px; }
+
+/* Course roadmap */
+.steps { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 0; border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; }
+.steps li { padding: 14px 16px; display: grid; grid-template-columns: 34px 1fr; gap: 10px; border-bottom: 1px solid var(--rule); border-right: 1px solid var(--rule); background: var(--panel); }
+.steps .n { font: 500 13px var(--font-mono); color: var(--gold); padding-top: 2px; }
+.steps b { font-weight: 600; display: block; }
+.steps small { color: var(--muted); font-size: 14px; }
+
+/* Course player */
+.course { display: grid; gap: 16px; }
+.stepnav { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.stepnav button { text-align: left; background: var(--panel); border: 1px solid var(--rule); border-radius: 8px; padding: 10px 12px; color: var(--paper); font: inherit; cursor: pointer; display: grid; gap: 2px; align-content: start; }
+.stepnav button:hover:not(:disabled) { border-color: var(--gold); }
+.stepnav button[aria-current="step"] { border-color: var(--gold); box-shadow: inset 0 0 0 1px var(--gold); }
+.stepnav button:disabled { opacity: .45; cursor: default; }
+.stepnav .n { font: 500 12px var(--font-mono); color: var(--gold); }
+.stepnav b { font-weight: 600; font-size: 15px; }
+.stepnav small { color: var(--muted); font-size: 13px; line-height: 1.35; }
+.panel { background: var(--panel); border: 1px solid var(--rule); border-radius: 12px; padding: 22px; display: grid; gap: 14px; min-width: 0; }
+.panel h3 { margin: 0; font: 700 clamp(19px, 2.4vw, 24px)/1.25 var(--font-display); text-wrap: balance; }
+.panel .txt { margin: 0; color: var(--muted); max-width: 64ch; }
+.scene { display: grid; gap: 14px; min-width: 0; }
+.panel-nav { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding-top: 6px; border-top: 1px solid var(--rule); }
+.panel-nav button:disabled { opacity: .5; cursor: default; }
+.field { display: grid; gap: 6px; min-width: 0; }
+.lbl { font: 500 11px var(--font-mono); color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.val { font: 14px var(--font-mono); word-break: break-all; }
+input[type="text"] { width: 100%; background: var(--ink); color: var(--paper); border: 1px solid var(--rule); border-radius: 6px; padding: 8px 10px; font: 14px/1.5 var(--font-mono); }
+input[type="text"]:focus { border-color: var(--gold); outline: none; }
+.dc { color: var(--gold); background: rgba(227,179,65,.16); }
+.expl { display: block; color: var(--muted); font-size: 13px; margin-top: 6px; }
+.block.anat { border-left-color: var(--gold); }
+.hash.sm { font-size: 12px; }
+.hash.badh { color: var(--bad); }
+.summary { margin: 0; font-weight: 600; }
+.summary.ok { color: var(--ok); }
+.summary.bad { color: var(--bad); }
+.chain { display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px; }
+.mblock { flex: 0 0 250px; background: var(--ink); border: 1px solid var(--rule); border-top: 4px solid var(--bad); border-radius: 8px; padding: 12px; display: grid; gap: 6px; align-content: start; transition: border-color .2s; }
+.mblock.valid { border-top-color: var(--ok); }
+.mhead { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 4px; }
+.mhead b { font: 500 13px var(--font-mono); }
+.tblwrap { overflow-x: auto; }
+.tbl { width: 100%; border-collapse: collapse; font: 14px var(--font-mono); font-variant-numeric: tabular-nums; }
+.tbl th { text-align: left; color: var(--muted); font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }
+.tbl th, .tbl td { padding: 9px 10px; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+.peers { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; }
+.peer { background: var(--ink); border: 1px solid var(--rule); border-left: 4px solid var(--ok); border-radius: 8px; padding: 12px; display: grid; gap: 8px; align-content: start; min-width: 0; }
+.peer.bad { border-left-color: var(--bad); }
+.prow { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 4px 8px; align-items: center; }
+.prow .hash { grid-column: 2; }
+.pbtns { display: flex; gap: 8px; flex-wrap: wrap; }
+.pbtns .ghost { font-size: 12px; padding: 6px 10px; }
+select { width: 100%; background: var(--ink); color: var(--paper); border: 1px solid var(--rule); border-radius: 6px; padding: 8px 10px; font: 14px var(--font-mono); }
+select:focus { border-color: var(--gold); outline: none; }
+.txform { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+.txlist { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.txlist li { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; background: var(--ink); border: 1px solid var(--rule); border-radius: 6px; padding: 8px 10px; font: 13px var(--font-mono); }
+.txlist li.in span:last-child { color: var(--ok); }
+.txlist li.out { border-color: var(--bad); }
+.txlist li.out span:last-child { color: var(--bad); }
+.txblock { display: grid; gap: 6px; margin-bottom: 10px; }
+.txblock b { font: 500 13px var(--font-mono); color: var(--gold); }
+.stat span { text-transform: none; }
+
+footer { border-top: 1px solid var(--rule); padding: 28px 0 40px; color: var(--muted); font-size: 14px; }
+footer p { margin: 0 0 6px; max-width: 70ch; }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <div class="brand">
+      <svg width="34" height="34" viewBox="0 0 34 34" aria-hidden="true">
+        <rect x="1" y="11" width="10" height="12" rx="2" fill="none" stroke="#e3b341" stroke-width="2"/>
+        <rect x="12" y="11" width="10" height="12" rx="2" fill="none" stroke="#e3b341" stroke-width="2"/>
+        <rect x="23" y="11" width="10" height="12" rx="2" fill="#e3b341"/>
+      </svg>
+      <div><b data-i18n="brand">Chain Lab</b><small data-i18n="tagline">Learn how a blockchain remembers</small></div>
+    </div>
+    <div class="bar-right">
+      <a class="ghost" href="#course" data-i18n="howBtn">How does it work?</a>
+      <div class="lang" role="group" aria-label="Language">
+        <button type="button" data-lang="en" aria-pressed="true">EN</button>
+        <button type="button" data-lang="ru" aria-pressed="false">RU</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="hero">
+    <div class="eyebrow" data-i18n="eyebrow">Interactive lab · no wallet needed</div>
+    <h1 data-i18n-html="h1">See how a <em>blockchain</em> remembers</h1>
+    <p class="lede" data-i18n="lede">Every block is a few lines of data and one fingerprint. Change a single letter and the fingerprint breaks. Try it below, right in your browser.</p>
+  </div>
+
+  <div class="modes">
+    <a class="mode" href="#lab">
+      <h3><span data-i18n="mode1">Mine a block</span><span class="pill live" data-i18n="live">LIVE</span></h3>
+      <p data-i18n="mode1d">Type any text, watch its SHA-256 hash change, then search for a nonce that makes the block valid.</p>
+    </a>
+    <div class="mode" aria-disabled="true">
+      <h3><span data-i18n="mode2">Decode a real transaction</span><span class="pill soon" data-i18n="soon">SOON</span></h3>
+      <p data-i18n="mode2d">Paste a Bitcoin or Ethereum transaction ID and see who sent what, the fee, and which block holds it.</p>
+    </div>
+  </div>
+
+  <section id="lab">
+    <h2 data-i18n="labH">Mine a block</h2>
+    <p class="sub" data-i18n="labSub">A block counts as valid when its hash starts with enough zeros. The only way to get there is to try nonce after nonce. That search is what miners do.</p>
+
+    <div class="lab">
+      <div class="block" id="block">
+        <div class="block-head">
+          <b data-i18n="blockN">Block #1</b>
+          <span class="status invalid" id="status">INVALID</span>
+        </div>
+        <div class="row">
+          <label for="data" data-i18n="fData">Data</label>
+          <div class="v">
+            <textarea id="data" rows="3">Alice pays Bob 5 coins</textarea>
+            <div class="warn" id="seedWarn" role="alert" data-i18n="seedWarn">This looks like a seed phrase. Never type a real seed phrase into any website, including this one. Anyone who has it owns your wallet.</div>
+          </div>
+        </div>
+        <div class="row">
+          <label for="nonce" data-i18n="fNonce">Nonce</label>
+          <div class="v"><input id="nonce" type="number" min="0" step="1" value="0" inputmode="numeric"></div>
+        </div>
+        <div class="row">
+          <div class="k" data-i18n="fPrev">Prev hash</div>
+          <div class="v"><div class="hash prev">0000000000000000000000000000000000000000000000000000000000000000</div></div>
+        </div>
+        <div class="row">
+          <div class="k" data-i18n="fHash">Hash</div>
+          <div class="v"><div class="hash" id="hash" aria-live="polite">…</div></div>
+        </div>
+      </div>
+
+      <div class="side">
+        <div class="card">
+          <h4 data-i18n="diffH">Difficulty: zeros at the start</h4>
+          <div class="diff" id="diff">
+            <button type="button" data-d="1" aria-pressed="false">1</button>
+            <button type="button" data-d="2" aria-pressed="false">2</button>
+            <button type="button" data-d="3" aria-pressed="true">3</button>
+            <button type="button" data-d="4" aria-pressed="false">4</button>
+          </div>
+          <p class="note" data-i18n="diffNote">Each extra zero makes the search about 16 times longer. Bitcoin today needs around 19 of them.</p>
+          <button type="button" class="primary" id="mine" data-i18n="mineBtn">Mine</button>
+          <div class="stats">
+            <div class="stat"><span data-i18n="sTries">Tries</span><b id="tries">0</b></div>
+            <div class="stat"><span data-i18n="sSpeed">Hash/s</span><b id="speed">0</b></div>
+            <div class="stat"><span data-i18n="sTime">Time</span><b id="time">0.0s</b></div>
+          </div>
+          <p class="note" id="mineMsg" aria-live="polite"></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2 data-i18n="learnH">What you will learn</h2>
+    <p class="sub" data-i18n="learnSub">Four ideas carry the whole technology. Each one has a hands-on step in the course.</p>
+    <div class="learn">
+      <article><div class="code">SHA-256</div><h3 data-i18n="l1">Hashing</h3><p data-i18n="l1d">A fixed-length fingerprint of any data. Same input, same hash. One changed letter, a completely different hash.</p></article>
+      <article><div class="code">prev → hash</div><h3 data-i18n="l2">Immutability</h3><p data-i18n="l2d">Each block stores the hash of the one before it. Edit an old block and every block after it breaks.</p></article>
+      <article><div class="code">PoW · PoS</div><h3 data-i18n="l3">Consensus</h3><p data-i18n="l3d">Thousands of computers keep copies and agree on one history without trusting each other.</p></article>
+      <article><div class="code">ERC-20 · ERC-721</div><h3 data-i18n="l4">Tokens</h3><p data-i18n="l4d">Coins, points and unique items like NFTs are entries in a smart contract that anyone can check.</p></article>
+    </div>
+  </section>
+
+  <section id="course">
+    <h2 data-i18n="courseH">The course: 8 steps</h2>
+    <p class="sub" data-i18n="courseSub">Steps 1–5 are open. Steps 6–8 are in progress.</p>
+    <div class="course">
+      <nav class="stepnav" id="stepnav" aria-label="Course steps"></nav>
+      <div class="panel">
+        <div class="eyebrow" id="stepOf"></div>
+        <h3 id="stepTitle"></h3>
+        <p class="txt" id="stepText"></p>
+        <div class="scene" id="scene"></div>
+        <div class="panel-nav">
+          <button type="button" class="ghost" id="prevStep"></button>
+          <button type="button" class="primary" id="nextStep"></button>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p data-i18n="f1">Chain Lab is an educational project. Nothing here is financial advice.</p>
+    <p data-i18n="f2">The lab runs fully in your browser. It never asks for a wallet, keys or a seed phrase.</p>
+  </div>
+</footer>
+
+<script>
+const T = {
+  en: {
+    _title: "Chain Lab — see how a blockchain works",
+    brand: "Chain Lab", tagline: "Learn how a blockchain remembers", howBtn: "How does it work?",
+    eyebrow: "Interactive lab · no wallet needed",
+    h1: 'See how a <em>blockchain</em> remembers',
+    lede: "Every block is a few lines of data and one fingerprint. Change a single letter and the fingerprint breaks. Try it below, right in your browser.",
+    mode1: "Mine a block", live: "LIVE", mode1d: "Type any text, watch its SHA-256 hash change, then search for a nonce that makes the block valid.",
+    mode2: "Decode a real transaction", soon: "SOON", mode2d: "Paste a Bitcoin or Ethereum transaction ID and see who sent what, the fee, and which block holds it.",
+    labH: "Mine a block", labSub: "A block counts as valid when its hash starts with enough zeros. The only way to get there is to try nonce after nonce. That search is what miners do.",
+    blockN: "Block #1", fData: "Data", fNonce: "Nonce", fPrev: "Prev hash", fHash: "Hash",
+    valid: "VALID", invalid: "INVALID",
+    seedWarn: "This looks like a seed phrase. Never type a real seed phrase into any website, including this one. Anyone who has it owns your wallet.",
+    diffH: "Difficulty: zeros at the start", diffNote: "Each extra zero makes the search about 16 times longer. Bitcoin today needs around 19 of them.",
+    mineBtn: "Mine", stopBtn: "Stop", sTries: "Tries", sSpeed: "Hash/s", sTime: "Time",
+    found: (n, t) => `Found nonce ${n} after ${t} tries. The block is valid.`,
+    stopped: "Stopped. Press Mine to continue from this nonce.",
+    timeout: "Stopped after 20 seconds to spare your battery. Try a lower difficulty.",
+    edited: "You changed the block, so its hash changed. Mine again to make it valid.",
+    learnH: "What you will learn", learnSub: "Four ideas carry the whole technology. Each one has a hands-on step in the course.",
+    l1: "Hashing", l1d: "A fixed-length fingerprint of any data. Same input, same hash. One changed letter, a completely different hash.",
+    l2: "Immutability", l2d: "Each block stores the hash of the one before it. Edit an old block and every block after it breaks.",
+    l3: "Consensus", l3d: "Thousands of computers keep copies and agree on one history without trusting each other.",
+    l4: "Tokens", l4d: "Coins, points and unique items like NFTs are entries in a smart contract that anyone can check.",
+    courseH: "The course: 8 steps", courseSub: "Each step is a small interactive scene. Steps are in progress and will open one by one.",
+    c1: "Hash", c1d: "A fingerprint of data", c2: "Block", c2d: "Data, nonce and the previous hash",
+    c3: "Chain", c3d: "Edit an old block and watch the chain turn red", c4: "Mining", c4d: "Proof of Work, step by step",
+    c5: "Network", c5d: "Five copies vote out a fake", c6: "Keys", c6d: "Private key, public key, address, signature",
+    c7: "Transactions", c7d: "What a wallet really holds", c8: "Tokens", c8d: "Claim a unique word that only you own",
+    f1: "Chain Lab is an educational project. Nothing here is financial advice.",
+    f2: "The lab runs fully in your browser. It never asks for a wallet, keys or a seed phrase.",
+    courseSub: "Steps 1–5 are open. Steps 6–8 are in progress.",
+    soonTag: "Coming soon", stepOf: i => `Step ${i} of 8`, back: "← Back", next: "Next →", nextSoon: "Steps 6–8 coming soon",
+    preparing: "Mining the starting blocks…",
+    s1t: "Hash: a fingerprint of data",
+    s1x: "SHA-256 turns any text into 64 hex characters. Type below, then change just one letter and count how much of the hash changes.",
+    yourText: "Your text", original: "Hash", changed: "One letter changed", changeOne: "Change one letter", changeBack: "Back to original",
+    diffNote: n => `${n} of 64 characters changed. A tiny edit gives a completely new fingerprint.`,
+    s2t: "Block: data plus a link to the past",
+    s2x: "A block holds four things: its number, the data, a nonce and the hash of the previous block. All four go into the block's own hash. Edit a field and watch the hash.",
+    fNum: "Number", eNum: "Position in the chain.", eData: "Transactions or any other records.",
+    eNonce: "The number miners change to find a valid hash.", ePrev: "Hash of the previous block. This field links blocks into a chain.",
+    eHash: "Computed from the four fields above. You can't type it, only change the inputs.",
+    s3t: "Chain: why the past can't be edited",
+    s3x: "These four blocks are already mined with 3 zeros. Change the data in block 2. Its hash changes, block 3 now points to a hash that no longer exists, and the damage runs to the end. To fake history you would have to re-mine every block after the edit.",
+    blockLbl: i => `Block #${i}`, mineOne: "Mine", resetChain: "Reset chain",
+    chainOk: "The whole chain is valid.", chainBroken: k => `The chain is broken from block #${k}. Mine the red blocks from left to right to repair it.`,
+    s4t: "Mining: Proof of Work",
+    s4x: "There is no shortcut to a hash with N zeros, only guessing. Each extra zero multiplies the work by about 16. Run the race to mine with 1 to 4 zeros.",
+    runRace: "Run the race", running: "Mining…", thZeros: "Zeros", thExp: "Expected tries", thYour: "Your tries", thTime: "Time",
+    raceDone: "Each row took roughly 16 times more guesses than the one above. Your numbers vary because guessing is random. That cost is what protects the chain.",
+    s4n: "Real networks make quintillions of guesses per second. Ethereum stopped mining in 2022 and moved to Proof of Stake, where validators lock up coins instead of burning electricity.",
+    s5t: "Network: copies vote",
+    s5x: "Three computers keep the same chain. Edit a block on any one of them. That copy no longer matches the others, so the network ignores it. Even if you re-mine it, two honest copies still outvote you.",
+    node: c => `Node ${c}`, agree: "In agreement", rejected: "Rejected", noMajority: "No majority", tip: "Last block hash",
+    remine: "Re-mine this copy", sync: "Copy from majority",
+    s5n: "Try it: change the same block to the same text on two nodes and re-mine both. Now the fake has the majority. That is a 51% attack, and on a real network it needs more than half of all computing power.",
+    courseSub2: "All 8 steps are open. Start anywhere.", finish: "Back to the lab ↑",
+    s6t: "Keys: proving it's you without a password",
+    s6x: "A wallet is a pair of keys. The private key signs, the public key lets anyone check the signature, and the address is a short hash of the public key. Sign a message, then try to change it in the check field.",
+    newKeys: "Generate new keys", privKey: "Private key", pubKey: "Public key", address: "Address",
+    show: "Show", hide: "Hide", privWarn: "Whoever has the private key owns the wallet. Real wallets never show it to websites.",
+    message: "Message", sign: "Sign", signature: "Signature", notSigned: "Not signed yet",
+    checkH: "Anyone can check", checkMsg: "Message to check",
+    sigOk: a => `Valid. Signed by ${a}`, sigBad: "Invalid. The message or signature doesn't match this key.",
+    s6n: "Simplified: Bitcoin and Ethereum use the secp256k1 curve, and Ethereum builds addresses with Keccak-256. This lab uses P-256 and SHA-256, which are built into your browser. The idea is the same.",
+    s7t: "Transactions: a wallet holds keys, not coins",
+    s7x: "Your balance isn't stored anywhere. It's the sum of every transaction in the chain. A transaction is a signed message: who pays whom and how much. Miners collect them into a block and check each one.",
+    from: "From", to: "To", amount: "Amount", signWith: "Signed with key of", send: "Sign and send",
+    mempool: "Waiting for a block", emptyPool: "No transactions yet.", mineTx: "Mine a block", history: "Blocks", reset: "Reset",
+    sentOk: "Signature checks out. The transaction is waiting for a block.",
+    sentForged: (s, f) => `Rejected at once: signed by ${s}, but the coins belong to ${f}.`,
+    sentSelf: "Pick a different recipient.", sentAmount: "Enter an amount above zero.",
+    included: "included", rejectedFunds: "rejected: not enough coins", noTx: "Nothing to mine: send a transaction first.",
+    blockOf: (n, k) => `Block #${n} · ${k} tx`,
+    s7n: "Try a double spend: Alice has 10. Send 8 from Alice to Bob, then 8 from Alice to Carol, then mine. Only the first one gets in.",
+    s8t: "Tokens: one word, one owner",
+    s8x: "A token is a record in a smart contract. Coins like USDT are fungible (ERC-20): any one is as good as another. NFTs (ERC-721) are unique: each has its own ID and exactly one owner. This contract is a name registry. The token ID is the hash of the word, so the same word can't be minted twice.",
+    word: "Word", claimAs: "Claim as", claim: "Claim", tryThese: "Try:",
+    you: "You", thWord: "Word", thId: "Token ID", thOwner: "Owner",
+    claimed: (w, o) => `Minted. "${w}" now belongs to ${o}.`,
+    taken: (w, o) => `"${w}" already belongs to ${o}. There is only one original.`,
+    mixed: "Rejected: Latin and Cyrillic letters are mixed. This is a classic fake, a lookalike word (homoglyph).",
+    badWord: "Use 3–20 letters, digits or hyphens, in one alphabet.",
+    transferNote: "Only the current owner can sign a transfer. Changing the owner here is that owner's signed transfer.",
+    s8n: "Uniqueness lives inside one contract. Anyone can deploy another contract with the same word, and people trust the original because of its address. ENS names (.eth) work exactly like this."
+  },
+  ru: {
+    _title: "Chain Lab — как работает блокчейн",
+    brand: "Chain Lab", tagline: "Как блокчейн запоминает", howBtn: "Как это работает?",
+    eyebrow: "Интерактивная лаборатория · кошелёк не нужен",
+    h1: 'Посмотри, как <em>блокчейн</em> запоминает',
+    lede: "Каждый блок — это несколько строк данных и один отпечаток. Измени одну букву, и отпечаток сломается. Попробуй ниже, прямо в браузере.",
+    mode1: "Намайни блок", live: "РАБОТАЕТ", mode1d: "Введи любой текст, посмотри, как меняется его хеш SHA-256, и подбери nonce, при котором блок станет валидным.",
+    mode2: "Разбери настоящую транзакцию", soon: "СКОРО", mode2d: "Вставь ID транзакции Bitcoin или Ethereum и узнай, кто кому сколько отправил, какая была комиссия и в каком она блоке.",
+    labH: "Намайни блок", labSub: "Блок считается валидным, когда его хеш начинается с нужного числа нулей. Добиться этого можно только перебором nonce. Этим и заняты майнеры.",
+    blockN: "Блок №1", fData: "Данные", fNonce: "Nonce", fPrev: "Пред. хеш", fHash: "Хеш",
+    valid: "ВАЛИДЕН", invalid: "НЕВАЛИДЕН",
+    seedWarn: "Похоже на сид-фразу. Никогда не вводи настоящую сид-фразу ни на одном сайте, включая этот. Кто её знает, тот владеет твоим кошельком.",
+    diffH: "Сложность: нули в начале хеша", diffNote: "Каждый лишний ноль удлиняет поиск примерно в 16 раз. Биткоину сейчас нужно около 19 нулей.",
+    mineBtn: "Майнить", stopBtn: "Стоп", sTries: "Попытки", sSpeed: "Хеш/с", sTime: "Время",
+    found: (n, t) => `Nonce ${n} найден за ${t} попыток. Блок валиден.`,
+    stopped: "Остановлено. Нажми «Майнить», чтобы продолжить с этого nonce.",
+    timeout: "Остановлено через 20 секунд, чтобы поберечь батарею. Попробуй сложность пониже.",
+    edited: "Ты изменил блок, поэтому изменился и хеш. Намайни снова, чтобы блок стал валидным.",
+    learnH: "Что ты узнаешь", learnSub: "Вся технология держится на четырёх идеях. Для каждой в курсе есть практический шаг.",
+    l1: "Хеширование", l1d: "Отпечаток любых данных фиксированной длины. Одинаковый вход даёт одинаковый хеш. Одна изменённая буква даёт совсем другой.",
+    l2: "Неизменяемость", l2d: "Каждый блок хранит хеш предыдущего. Измени старый блок, и все блоки после него сломаются.",
+    l3: "Консенсус", l3d: "Тысячи компьютеров хранят копии и договариваются об одной истории, не доверяя друг другу.",
+    l4: "Токены", l4d: "Монеты, баллы и уникальные предметы вроде NFT — это записи в смарт-контракте, которые может проверить любой.",
+    courseH: "Курс: 8 шагов", courseSub: "Каждый шаг — небольшая интерактивная сцена. Шаги в разработке и будут открываться по одному.",
+    c1: "Хеш", c1d: "Отпечаток данных", c2: "Блок", c2d: "Данные, nonce и хеш предыдущего блока",
+    c3: "Цепочка", c3d: "Измени старый блок и посмотри, как цепь краснеет", c4: "Майнинг", c4d: "Proof of Work по шагам",
+    c5: "Сеть", c5d: "Пять копий отвергают подделку", c6: "Ключи", c6d: "Приватный ключ, публичный ключ, адрес, подпись",
+    c7: "Транзакции", c7d: "Что на самом деле хранит кошелёк", c8: "Токены", c8d: "Закрепи за собой уникальное слово",
+    f1: "Chain Lab — образовательный проект. Ничто здесь не является финансовым советом.",
+    f2: "Лаборатория работает полностью в браузере. Она никогда не просит кошелёк, ключи или сид-фразу.",
+    courseSub: "Шаги 1–5 открыты. Шаги 6–8 в разработке.",
+    soonTag: "Скоро", stepOf: i => `Шаг ${i} из 8`, back: "← Назад", next: "Дальше →", nextSoon: "Шаги 6–8 скоро",
+    preparing: "Майним стартовые блоки…",
+    s1t: "Хеш: отпечаток данных",
+    s1x: "SHA-256 превращает любой текст в 64 шестнадцатеричных символа. Напиши что-нибудь, потом измени одну букву и посчитай, сколько символов хеша поменялось.",
+    yourText: "Твой текст", original: "Хеш", changed: "Изменена одна буква", changeOne: "Изменить одну букву", changeBack: "Вернуть как было",
+    diffNote: n => `Изменилось ${n} из 64 символов. Крошечная правка даёт совершенно новый отпечаток.`,
+    s2t: "Блок: данные и ссылка на прошлое",
+    s2x: "В блоке четыре поля: номер, данные, nonce и хеш предыдущего блока. Все четыре входят в собственный хеш блока. Измени любое поле и посмотри на хеш.",
+    fNum: "Номер", eNum: "Место в цепочке.", eData: "Транзакции или любые другие записи.",
+    eNonce: "Число, которое меняют майнеры, чтобы найти подходящий хеш.", ePrev: "Хеш предыдущего блока. Именно это поле связывает блоки в цепочку.",
+    eHash: "Считается из четырёх полей выше. Его нельзя вписать, можно только менять входные данные.",
+    s3t: "Цепочка: почему прошлое нельзя переписать",
+    s3x: "Эти четыре блока уже намайнены с тремя нулями. Измени данные в блоке 2. Его хеш поменяется, блок 3 будет ссылаться на хеш, которого больше нет, и поломка дойдёт до конца цепочки. Чтобы подделать историю, придётся заново майнить все блоки после правки.",
+    blockLbl: i => `Блок №${i}`, mineOne: "Майнить", resetChain: "Сбросить цепочку",
+    chainOk: "Вся цепочка валидна.", chainBroken: k => `Цепочка сломана начиная с блока №${k}. Намайни красные блоки слева направо, чтобы её починить.`,
+    s4t: "Майнинг: Proof of Work",
+    s4x: "Короткого пути к хешу с N нулями нет, есть только перебор. Каждый лишний ноль увеличивает работу примерно в 16 раз. Запусти гонку: майнинг с 1, 2, 3 и 4 нулями.",
+    runRace: "Запустить гонку", running: "Майним…", thZeros: "Нули", thExp: "Ожидаемо попыток", thYour: "Твои попытки", thTime: "Время",
+    raceDone: "Каждая строка потребовала примерно в 16 раз больше попыток, чем предыдущая. Числа каждый раз разные, потому что перебор случайный. Именно эта цена и защищает цепочку.",
+    s4n: "Настоящие сети делают квинтиллионы попыток в секунду. Ethereum отказался от майнинга в 2022 году и перешёл на Proof of Stake: там валидаторы блокируют монеты вместо того, чтобы жечь электричество.",
+    s5t: "Сеть: копии голосуют",
+    s5x: "Три компьютера хранят одну и ту же цепочку. Измени блок на любом из них. Эта копия перестанет совпадать с остальными, и сеть её проигнорирует. Даже если перемайнить её, две честные копии всё равно перевесят.",
+    node: c => `Узел ${c}`, agree: "Согласен с сетью", rejected: "Отклонён", noMajority: "Нет большинства", tip: "Хеш последнего блока",
+    remine: "Перемайнить копию", sync: "Скопировать у большинства",
+    s5n: "Попробуй: на двух узлах измени один и тот же блок на одинаковый текст и перемайни оба. Теперь у подделки большинство. Это атака 51%, и в реальной сети для неё нужно больше половины всей вычислительной мощности.",
+    courseSub2: "Все 8 шагов открыты. Начинай с любого.", finish: "Назад в лабораторию ↑",
+    s6t: "Ключи: доказать, что это ты, без пароля",
+    s6x: "Кошелёк — это пара ключей. Приватный ключ подписывает, публичный позволяет любому проверить подпись, а адрес — это короткий хеш публичного ключа. Подпиши сообщение, а потом попробуй изменить его в поле проверки.",
+    newKeys: "Создать новые ключи", privKey: "Приватный ключ", pubKey: "Публичный ключ", address: "Адрес",
+    show: "Показать", hide: "Скрыть", privWarn: "Кто знает приватный ключ, тот и владеет кошельком. Настоящие кошельки никогда не показывают его сайтам.",
+    message: "Сообщение", sign: "Подписать", signature: "Подпись", notSigned: "Ещё не подписано",
+    checkH: "Проверить может любой", checkMsg: "Сообщение для проверки",
+    sigOk: a => `Подпись верна. Подписал ${a}`, sigBad: "Подпись неверна. Сообщение или подпись не совпадают с этим ключом.",
+    s6n: "Упрощение: Bitcoin и Ethereum используют кривую secp256k1, а Ethereum строит адреса через Keccak-256. Здесь используются P-256 и SHA-256, встроенные в браузер. Принцип тот же.",
+    s7t: "Транзакции: кошелёк хранит ключи, а не монеты",
+    s7x: "Баланс нигде не записан. Это сумма всех транзакций в цепочке. Транзакция — подписанное сообщение: кто кому и сколько платит. Майнеры собирают их в блок и проверяют каждую.",
+    from: "От кого", to: "Кому", amount: "Сумма", signWith: "Подписано ключом", send: "Подписать и отправить",
+    mempool: "Ждут блока", emptyPool: "Транзакций пока нет.", mineTx: "Намайнить блок", history: "Блоки", reset: "Сбросить",
+    sentOk: "Подпись верна. Транзакция ждёт блока.",
+    sentForged: (s, f) => `Отклонено сразу: подписал ${s}, а монеты принадлежат ${f}.`,
+    sentSelf: "Выбери другого получателя.", sentAmount: "Введи сумму больше нуля.",
+    included: "включена", rejectedFunds: "отклонена: не хватает монет", noTx: "Нечего майнить: сначала отправь транзакцию.",
+    blockOf: (n, k) => `Блок №${n} · транзакций: ${k}`,
+    s7n: "Попробуй двойную трату: у Alice 10 монет. Отправь 8 от Alice к Bob, потом 8 от Alice к Carol и намайни блок. Пройдёт только первая.",
+    s8t: "Токены: одно слово — один владелец",
+    s8x: "Токен — это запись в смарт-контракте. Монеты вроде USDT взаимозаменяемы (ERC-20): любая не хуже другой. NFT (ERC-721) уникальны: у каждого свой ID и ровно один владелец. Этот контракт — реестр имён. ID токена — хеш слова, поэтому одно и то же слово нельзя выпустить дважды.",
+    word: "Слово", claimAs: "Закрепить за", claim: "Закрепить", tryThese: "Попробуй:",
+    you: "Ты", thWord: "Слово", thId: "ID токена", thOwner: "Владелец",
+    claimed: (w, o) => `Выпущено. «${w}» теперь принадлежит: ${o}.`,
+    taken: (w, o) => `«${w}» уже принадлежит: ${o}. Оригинал только один.`,
+    mixed: "Отклонено: смешаны латиница и кириллица. Это классическая подделка, слово-двойник (омоглиф).",
+    badWord: "Используй 3–20 букв, цифр или дефисов одного алфавита.",
+    transferNote: "Передать токен может только текущий владелец. Смена владельца здесь — это его подписанный перевод.",
+    s8n: "Уникальность существует только внутри одного контракта. Кто угодно может развернуть другой контракт с тем же словом, а оригиналу доверяют по его адресу. Имена ENS (.eth) устроены именно так."
+  }
+};
+
+let lang = "en";
+try { lang = localStorage.getItem("chainlab-lang") || ((navigator.language || "").toLowerCase().startsWith("ru") ? "ru" : "en"); } catch (e) {
+  lang = (navigator.language || "").toLowerCase().startsWith("ru") ? "ru" : "en";
+}
+const t = k => T[lang][k];
+
+function applyLang() {
+  document.documentElement.lang = lang;
+  document.title = t("_title");
+  document.querySelectorAll("[data-i18n]").forEach(el => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll("[data-i18n-html]").forEach(el => { el.innerHTML = t(el.dataset.i18nHtml); });
+  document.querySelectorAll(".lang button").forEach(b => b.setAttribute("aria-pressed", b.dataset.lang === lang));
+  mineBtn.textContent = mining ? t("stopBtn") : t("mineBtn");
+  if (lastMsg) msg.textContent = typeof T[lang][lastMsg.k] === "function" ? T[lang][lastMsg.k](...lastMsg.a) : t(lastMsg.k);
+  render(currentHash);
+  renderStep();
+}
+document.querySelectorAll(".lang button").forEach(b => b.addEventListener("click", () => {
+  lang = b.dataset.lang;
+  try { localStorage.setItem("chainlab-lang", lang); } catch (e) {}
+  applyLang();
+}));
+
+// Block lab
+const PREV = "0".repeat(64);
+const dataEl = document.getElementById("data"), nonceEl = document.getElementById("nonce");
+const hashEl = document.getElementById("hash"), statusEl = document.getElementById("status"), blockEl = document.getElementById("block");
+const mineBtn = document.getElementById("mine"), msg = document.getElementById("mineMsg");
+const triesEl = document.getElementById("tries"), speedEl = document.getElementById("speed"), timeEl = document.getElementById("time");
+const seedWarn = document.getElementById("seedWarn");
+let difficulty = 3, mining = false, currentHash = "", lastMsg = null;
+const enc = new TextEncoder();
+
+async function sha256(str) {
+  const buf = await crypto.subtle.digest("SHA-256", enc.encode(str));
+  return Array.from(new Uint8Array(buf), b => b.toString(16).padStart(2, "0")).join("");
+}
+const payload = n => `1|${n}|${dataEl.value}|${PREV}`;
+const isValid = h => h.startsWith("0".repeat(difficulty));
+
+function render(h) {
+  if (!h) return;
+  currentHash = h;
+  let z = 0; while (z < h.length && h[z] === "0") z++;
+  hashEl.innerHTML = `<span class="z">${h.slice(0, z)}</span>${h.slice(z)}`;
+  const ok = isValid(h);
+  blockEl.classList.toggle("valid", ok);
+  statusEl.className = "status " + (ok ? "valid" : "invalid");
+  statusEl.textContent = ok ? t("valid") : t("invalid");
+}
+function setMsg(k, ...a) { lastMsg = { k, a }; msg.textContent = typeof T[lang][k] === "function" ? T[lang][k](...a) : t(k); }
+
+async function update(fromEdit) {
+  const h = await sha256(payload(Number(nonceEl.value) || 0));
+  render(h);
+  if (fromEdit && !isValid(h)) setMsg("edited");
+}
+
+function checkSeed() {
+  const words = dataEl.value.trim().toLowerCase().split(/\s+/);
+  const looks = [12, 15, 18, 21, 24].includes(words.length) && words.every(w => /^[a-z]{3,8}$/.test(w));
+  seedWarn.classList.toggle("show", looks);
+}
+
+dataEl.addEventListener("input", () => { checkSeed(); if (mining) stop(); update(true); });
+nonceEl.addEventListener("input", () => { if (mining) stop(); update(false); });
+
+document.querySelectorAll("#diff button").forEach(b => b.addEventListener("click", () => {
+  difficulty = Number(b.dataset.d);
+  document.querySelectorAll("#diff button").forEach(x => x.setAttribute("aria-pressed", x === b));
+  render(currentHash);
+}));
+
+function stop() { mining = false; mineBtn.classList.remove("stop"); mineBtn.textContent = t("mineBtn"); }
+
+async function mine() {
+  mining = true; mineBtn.classList.add("stop"); mineBtn.textContent = t("stopBtn"); lastMsg = null; msg.textContent = "";
+  let n = Number(nonceEl.value) || 0;
+  if (isValid(currentHash)) n++;
+  let tries = 0; const t0 = performance.now();
+  while (mining) {
+    for (let i = 0; i < 400 && mining; i++) {
+      const h = await sha256(payload(n)); tries++;
+      if (isValid(h)) {
+        const s = (performance.now() - t0) / 1000;
+        triesEl.textContent = tries.toLocaleString(); speedEl.textContent = Math.round(tries / Math.max(s, 0.001)).toLocaleString(); timeEl.textContent = s.toFixed(1) + "s";
+        nonceEl.value = n; render(h); stop();
+        setMsg("found", n, tries.toLocaleString(lang === "ru" ? "ru-RU" : "en-US"));
+        return;
+      }
+      n++;
+    }
+    const sec = (performance.now() - t0) / 1000;
+    nonceEl.value = n; triesEl.textContent = tries.toLocaleString(); speedEl.textContent = Math.round(tries / sec).toLocaleString(); timeEl.textContent = sec.toFixed(1) + "s";
+    if (sec > 20) { stop(); update(false); setMsg("timeout"); return; }
+    await new Promise(r => setTimeout(r, 0));
+  }
+  update(false);
+  if (!lastMsg) setMsg("stopped");
+}
+mineBtn.addEventListener("click", () => mining ? stop() : mine());
+
+/* ---------- Course ---------- */
+const D = 3;
+const okHash = (h, d = D) => !!h && h.startsWith("0".repeat(d));
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const fmt = n => n.toLocaleString(lang === "ru" ? "ru-RU" : "en-US");
+const tick = () => new Promise(r => setTimeout(r, 0));
+const $ = id => document.getElementById(id);
+function hx(h, short) {
+  if (!h) return "…";
+  let z = 0; while (z < h.length && h[z] === "0") z++;
+  const s = short ? h.slice(0, short) : h; const zz = Math.min(z, s.length);
+  return `<span class="z">${s.slice(0, zz)}</span>${s.slice(zz)}${short ? "…" : ""}`;
+}
+async function findNonce(build, d, start = 0, maxMs = 20000) {
+  let n = start, tries = 0; const t0 = performance.now();
+  while (true) {
+    for (let i = 0; i < 400; i++) {
+      const h = await sha256(build(n)); tries++;
+      if (okHash(h, d)) return { n, h, tries, ms: performance.now() - t0 };
+      n++;
+    }
+    if (performance.now() - t0 > maxMs) return null;
+    await tick();
+  }
+}
+const blockStr = (i, b, prev) => `${i}|${b.nonce}|${b.data}|${prev}`;
+async function computeChain(blocks) {
+  const out = []; let prev = "0".repeat(64);
+  for (let i = 0; i < blocks.length; i++) { const h = await sha256(blockStr(i + 1, blocks[i], prev)); out.push({ prev, hash: h }); prev = h; }
+  return out;
+}
+async function mineChain(blocks) {
+  let chain = await computeChain(blocks);
+  for (let i = 0; i < blocks.length; i++) {
+    if (!okHash(chain[i].hash)) {
+      const prev = chain[i].prev, b = blocks[i];
+      const r = await findNonce(n => blockStr(i + 1, { data: b.data, nonce: n }, prev), D);
+      if (r) b.nonce = r.n;
+      chain = await computeChain(blocks);
+    }
+  }
+  return chain;
+}
+
+const CHAIN_DATA = ["Genesis", "Alice → Bob: 5", "Bob → Carol: 2", "Carol → Dan: 1"];
+const s1 = { text: "Hello, blockchain", show: false };
+const s2 = { data: "Alice pays Bob 5 coins", nonce: 0, prev: "" };
+const s3 = { blocks: CHAIN_DATA.map(d => ({ data: d, nonce: 0 })), chain: null, busy: false, ver: 0, pristine: null };
+const s4 = { rows: [1, 2, 3, 4].map(d => ({ d, tries: null, ms: null })), running: false, done: false };
+const s5 = { peers: null };
+let cur = 1, ready = false;
+
+const STEPS = { 1: scene1, 2: scene2, 3: scene3, 4: scene4, 5: scene5, 6: scene6, 7: scene7, 8: scene8 };
+function renderStep() {
+  const nav = $("stepnav"); if (!nav) return;
+  document.querySelector('[data-i18n="courseSub"]').textContent = t("courseSub2");
+  nav.innerHTML = [1, 2, 3, 4, 5, 6, 7, 8].map(i => `<button type="button" data-s="${i}" ${i === cur ? 'aria-current="step"' : ""}><span class="n">0${i}</span><b>${t("c" + i)}</b><small>${t("c" + i + "d")}</small></button>`).join("");
+  nav.querySelectorAll("button").forEach(b => b.addEventListener("click", () => { cur = Number(b.dataset.s); renderStep(); }));
+  $("stepOf").textContent = T[lang].stepOf(cur);
+  $("stepTitle").textContent = t("s" + cur + "t");
+  $("stepText").textContent = t("s" + cur + "x");
+  STEPS[cur]($("scene"));
+  const p = $("prevStep"), n = $("nextStep");
+  p.textContent = t("back"); p.disabled = cur === 1;
+  n.textContent = cur === 8 ? t("finish") : t("next");
+}
+$("prevStep").addEventListener("click", () => { if (cur > 1) { cur--; renderStep(); } });
+$("nextStep").addEventListener("click", () => {
+  if (cur < 8) { cur++; renderStep(); $("course").scrollIntoView({ block: "start" }); }
+  else $("lab").scrollIntoView({ block: "start" });
+});
+
+/* Step 1: hash */
+function flip(s) {
+  if (!s) return "a";
+  const c = s[s.length - 1];
+  const nc = c === "z" ? "a" : c === "Z" ? "A" : c === "я" ? "а" : String.fromCharCode(c.charCodeAt(0) + 1);
+  return s.slice(0, -1) + nc;
+}
+function scene1(el) {
+  el.innerHTML = `<div class="field"><label class="lbl" for="s1in">${t("yourText")}</label><input type="text" id="s1in" value="${esc(s1.text)}" autocomplete="off"></div>
+  <div class="field"><div class="lbl">${t("original")}</div><div class="hash" id="s1h">…</div></div>
+  <div><button type="button" class="ghost" id="s1btn">${s1.show ? t("changeBack") : t("changeOne")}</button></div>
+  <div class="field" id="s1c" ${s1.show ? "" : "hidden"}><div class="lbl">${t("changed")}: <span class="val" id="s1ct"></span></div><div class="hash" id="s1h2">…</div></div>
+  <p class="note" id="s1n"></p>`;
+  $("s1in").addEventListener("input", e => { s1.text = e.target.value; upd1(); });
+  $("s1btn").addEventListener("click", e => { s1.show = !s1.show; e.target.textContent = s1.show ? t("changeBack") : t("changeOne"); $("s1c").hidden = !s1.show; upd1(); });
+  upd1();
+}
+async function upd1() {
+  const text = s1.text, h = await sha256(text);
+  if (text !== s1.text || !$("s1h")) return;
+  $("s1h").textContent = h;
+  if (!s1.show) { $("s1n").textContent = ""; return; }
+  const c = flip(text), h2 = await sha256(c);
+  if (text !== s1.text || !$("s1h2")) return;
+  let n = 0, b = "";
+  for (let i = 0; i < 64; i++) { const d = h[i] !== h2[i]; if (d) n++; b += d ? `<span class="dc">${h2[i]}</span>` : h2[i]; }
+  $("s1h2").innerHTML = b; $("s1ct").textContent = c; $("s1n").textContent = T[lang].diffNote(n);
+}
+
+/* Step 2: block anatomy */
+function scene2(el) {
+  const rows = [
+    ["fNum", `<div class="val">2</div>`, "eNum"],
+    ["fData", `<textarea id="s2d" rows="2" aria-label="${t("fData")}">${esc(s2.data)}</textarea>`, "eData"],
+    ["fNonce", `<input type="number" id="s2n" min="0" step="1" value="${s2.nonce}" inputmode="numeric" aria-label="${t("fNonce")}">`, "eNonce"],
+    ["fPrev", `<div class="hash prev">${s2.prev}</div>`, "ePrev"],
+    ["fHash", `<div class="hash" id="s2h">…</div>`, "eHash"]
+  ];
+  el.innerHTML = `<div class="block anat">${rows.map(([k, v, e]) => `<div class="row"><div class="k">${t(k)}</div><div class="v">${v}<small class="expl">${t(e)}</small></div></div>`).join("")}</div>`;
+  $("s2d").addEventListener("input", e => { s2.data = e.target.value; upd2(); });
+  $("s2n").addEventListener("input", e => { s2.nonce = Number(e.target.value) || 0; upd2(); });
+  upd2();
+}
+async function upd2() { const h = await sha256(`2|${s2.nonce}|${s2.data}|${s2.prev}`); if ($("s2h")) $("s2h").innerHTML = hx(h); }
+
+/* Step 3: chain */
+function scene3(el) {
+  if (!ready) { el.innerHTML = `<p class="note">${t("preparing")}</p>`; return; }
+  el.innerHTML = `<p class="summary" id="s3s"></p><div class="chain">${s3.blocks.map((b, i) => `
+  <div class="mblock" id="mb${i}"><div class="mhead"><b>${T[lang].blockLbl(i + 1)}</b><span class="status" id="mst${i}"></span></div>
+  <label class="lbl" for="md${i}">${t("fData")}</label><input type="text" id="md${i}" value="${esc(b.data)}" autocomplete="off">
+  <div class="lbl">${t("fNonce")}</div><div class="val" id="mn${i}"></div>
+  <div class="lbl">${t("fPrev")}</div><div class="hash prev sm" id="mp${i}"></div>
+  <div class="lbl">${t("fHash")}</div><div class="hash sm" id="mh${i}"></div>
+  <button type="button" class="ghost" data-mine="${i}">${t("mineOne")}</button></div>`).join("")}</div>
+  <div><button type="button" class="ghost" id="s3r">${t("resetChain")}</button></div>`;
+  s3.blocks.forEach((b, i) => $("md" + i).addEventListener("input", e => { s3.blocks[i].data = e.target.value; recompute3(); }));
+  el.querySelectorAll("[data-mine]").forEach(b => b.addEventListener("click", () => mine3(Number(b.dataset.mine), b)));
+  $("s3r").addEventListener("click", () => {
+    s3.blocks = s3.pristine.map(b => ({ ...b }));
+    s3.blocks.forEach((b, i) => { if ($("md" + i)) $("md" + i).value = b.data; });
+    recompute3();
+  });
+  paint3();
+}
+async function recompute3() { const v = ++s3.ver; const c = await computeChain(s3.blocks); if (v !== s3.ver) return; s3.chain = c; paint3(); }
+function paint3() {
+  if (!$("s3s")) return;
+  let broken = 0;
+  s3.chain.forEach((c, i) => {
+    const ok = okHash(c.hash); if (!ok && !broken) broken = i + 1;
+    $("mb" + i).classList.toggle("valid", ok);
+    const st = $("mst" + i); st.className = "status " + (ok ? "valid" : "invalid"); st.textContent = ok ? t("valid") : t("invalid");
+    $("mn" + i).textContent = s3.blocks[i].nonce; $("mp" + i).innerHTML = hx(c.prev); $("mh" + i).innerHTML = hx(c.hash);
+  });
+  const s = $("s3s"); s.className = "summary " + (broken ? "bad" : "ok");
+  s.textContent = broken ? T[lang].chainBroken(broken) : t("chainOk");
+}
+async function mine3(i, btn) {
+  if (s3.busy) return; s3.busy = true;
+  if (btn) btn.textContent = t("running");
+  await recompute3();
+  const prev = s3.chain[i].prev, data = s3.blocks[i].data;
+  const r = await findNonce(n => blockStr(i + 1, { data, nonce: n }, prev), D);
+  if (r && s3.blocks[i].data === data) s3.blocks[i].nonce = r.n;
+  s3.busy = false;
+  document.querySelectorAll("[data-mine]").forEach(b => b.textContent = t("mineOne"));
+  await recompute3();
+}
+
+/* Step 4: mining race */
+function scene4(el) {
+  el.innerHTML = `<div class="tblwrap"><table class="tbl"><thead><tr><th>${t("thZeros")}</th><th>${t("thExp")}</th><th>${t("thYour")}</th><th>${t("thTime")}</th></tr></thead><tbody>${s4.rows.map(r => `<tr><td>${r.d}</td><td>~${fmt(16 ** r.d)}</td><td id="r4t${r.d}"></td><td id="r4m${r.d}"></td></tr>`).join("")}</tbody></table></div>
+  <div><button type="button" class="primary" id="s4b" ${s4.running ? "disabled" : ""}>${s4.running ? t("running") : t("runRace")}</button></div>
+  <p class="note" id="s4d">${s4.done ? t("raceDone") : ""}</p><p class="note">${t("s4n")}</p>`;
+  s4.rows.forEach(paint4);
+  $("s4b").addEventListener("click", race4);
+}
+function paint4(r) {
+  const a = $("r4t" + r.d); if (!a) return;
+  a.textContent = r.tries == null ? "—" : fmt(r.tries);
+  $("r4m" + r.d).textContent = r.ms == null ? "—" : (r.ms / 1000).toFixed(2) + "s";
+}
+async function race4() {
+  if (s4.running) return;
+  s4.running = true; s4.done = false; s4.rows.forEach(r => { r.tries = null; r.ms = null; });
+  if (cur === 4) renderStep();
+  const salt = Math.random().toString(36).slice(2);
+  for (const r of s4.rows) {
+    const res = await findNonce(n => `race|${salt}|${r.d}|${n}`, r.d, 0, 30000);
+    r.tries = res ? res.tries : null; r.ms = res ? res.ms : null; paint4(r);
+  }
+  s4.running = false; s4.done = true;
+  if (cur === 4) renderStep();
+}
+
+/* Step 5: network */
+const tipOf = p => p.chain[p.chain.length - 1].hash;
+function majority() {
+  const counts = {};
+  s5.peers.forEach(p => { const k = tipOf(p); counts[k] = (counts[k] || 0) + 1; });
+  for (const k in counts) if (counts[k] >= 2) return k;
+  return null;
+}
+function scene5(el) {
+  if (!ready) { el.innerHTML = `<p class="note">${t("preparing")}</p>`; return; }
+  el.innerHTML = `<div class="peers">${s5.peers.map((p, pi) => `
+  <div class="peer" id="pr${pi}"><div class="mhead"><b>${T[lang].node("ABC"[pi])}</b><span class="status" id="ps${pi}"></span></div>
+  ${p.blocks.map((b, i) => `<div class="prow"><span class="lbl">#${i + 1}</span><input type="text" id="pd${pi}_${i}" value="${esc(b.data)}" aria-label="${T[lang].node("ABC"[pi])}, ${T[lang].blockLbl(i + 1)}" autocomplete="off"><span class="hash sm" id="ph${pi}_${i}"></span></div>`).join("")}
+  <div class="lbl">${t("tip")}</div><div class="hash sm" id="pt${pi}"></div>
+  <div class="pbtns"><button type="button" class="ghost" data-remine="${pi}">${t("remine")}</button><button type="button" class="ghost" data-sync="${pi}">${t("sync")}</button></div></div>`).join("")}</div>
+  <p class="note">${t("s5n")}</p>`;
+  s5.peers.forEach((p, pi) => p.blocks.forEach((b, i) => $(`pd${pi}_${i}`).addEventListener("input", e => { p.blocks[i].data = e.target.value; recompute5(pi); })));
+  el.querySelectorAll("[data-remine]").forEach(b => b.addEventListener("click", () => remine5(Number(b.dataset.remine), b)));
+  el.querySelectorAll("[data-sync]").forEach(b => b.addEventListener("click", () => sync5(Number(b.dataset.sync))));
+  paint5();
+}
+async function recompute5(pi) { const p = s5.peers[pi]; const v = p.ver = (p.ver || 0) + 1; const c = await computeChain(p.blocks); if (v !== p.ver) return; p.chain = c; paint5(); }
+function paint5() {
+  if (!$("pr0")) return;
+  const maj = majority();
+  s5.peers.forEach((p, pi) => {
+    const good = maj && tipOf(p) === maj;
+    $("pr" + pi).classList.toggle("bad", !good);
+    const st = $("ps" + pi); st.className = "status " + (good ? "valid" : "invalid");
+    st.textContent = !maj ? t("noMajority") : good ? t("agree") : t("rejected");
+    p.chain.forEach((c, i) => { const h = $(`ph${pi}_${i}`); h.innerHTML = hx(c.hash, 16); h.classList.toggle("badh", !okHash(c.hash)); });
+    $("pt" + pi).innerHTML = hx(tipOf(p), 24);
+    const sb = document.querySelector(`[data-sync="${pi}"]`); sb.hidden = !maj || good;
+  });
+}
+async function remine5(pi, btn) {
+  const p = s5.peers[pi]; if (p.busy) return; p.busy = true;
+  btn.textContent = t("running");
+  p.ver = (p.ver || 0) + 1;
+  p.chain = await mineChain(p.blocks);
+  p.busy = false;
+  const b = document.querySelector(`[data-remine="${pi}"]`); if (b) b.textContent = t("remine");
+  paint5();
+}
+function sync5(pi) {
+  const maj = majority(); const src = s5.peers.find(p => tipOf(p) === maj); if (!src) return;
+  const p = s5.peers[pi];
+  p.ver = (p.ver || 0) + 1;
+  p.blocks = src.blocks.map(b => ({ ...b })); p.chain = src.chain.map(c => ({ ...c }));
+  p.blocks.forEach((b, i) => { const inp = $(`pd${pi}_${i}`); if (inp) inp.value = b.data; });
+  paint5();
+}
+
+/* Crypto helpers for steps 6–8 */
+const toHex = u8 => Array.from(u8, b => b.toString(16).padStart(2, "0")).join("");
+const fromHex = h => new Uint8Array((h.match(/../g) || []).map(x => parseInt(x, 16)));
+const b64uHex = s => { const b = atob(s.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((s.length + 3) % 4)); return toHex(Uint8Array.from(b, c => c.charCodeAt(0))); };
+const short = (h, a = 10, b = 6) => h.length > a + b + 1 ? `${h.slice(0, a)}…${h.slice(-b)}` : h;
+async function genKeys() {
+  const kp = await crypto.subtle.generateKey({ name: "ECDSA", namedCurve: "P-256" }, true, ["sign", "verify"]);
+  const pub = new Uint8Array(await crypto.subtle.exportKey("raw", kp.publicKey));
+  const jwk = await crypto.subtle.exportKey("jwk", kp.privateKey);
+  const ah = toHex(new Uint8Array(await crypto.subtle.digest("SHA-256", pub)));
+  return { kp, pubHex: toHex(pub), privHex: b64uHex(jwk.d), addr: "0x" + ah.slice(-40) };
+}
+const signMsg = async (k, m) => toHex(new Uint8Array(await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, k.kp.privateKey, enc.encode(m))));
+const verifyMsg = async (k, m, sig) => { try { return await crypto.subtle.verify({ name: "ECDSA", hash: "SHA-256" }, k.kp.publicKey, fromHex(sig), enc.encode(m)); } catch (e) { return false; } };
+
+/* Step 6: keys and signatures */
+const s6 = { me: null, showPriv: false, msg: "I, the owner, agree to pay 3 coins", sig: null, vmsg: "" };
+function scene6(el) {
+  if (!ready) { el.innerHTML = `<p class="note">${t("preparing")}</p>`; return; }
+  const k = s6.me;
+  el.innerHTML = `<div><button type="button" class="ghost" id="s6new">${t("newKeys")}</button></div>
+  <div class="block anat">
+    <div class="row"><div class="k">${t("privKey")}</div><div class="v"><div class="hash sm" id="s6priv"></div>
+      <div class="pbtns" style="margin-top:6px"><button type="button" class="ghost" id="s6show">${s6.showPriv ? t("hide") : t("show")}</button></div>
+      <small class="expl">${t("privWarn")}</small></div></div>
+    <div class="row"><div class="k">${t("pubKey")}</div><div class="v"><div class="hash sm">${short(k.pubHex, 24, 12)}</div></div></div>
+    <div class="row"><div class="k">${t("address")}</div><div class="v"><div class="val">${k.addr}</div></div></div>
+  </div>
+  <div class="field"><label class="lbl" for="s6m">${t("message")}</label><input type="text" id="s6m" value="${esc(s6.msg)}" autocomplete="off"></div>
+  <div><button type="button" class="primary" id="s6sign">${t("sign")}</button></div>
+  <div class="field"><div class="lbl">${t("signature")}</div><div class="hash sm" id="s6sig">${s6.sig ? short(s6.sig, 32, 12) : t("notSigned")}</div></div>
+  <div class="card" style="background:var(--ink)"><h4>${t("checkH")}</h4>
+    <div class="field"><label class="lbl" for="s6v">${t("checkMsg")}</label><input type="text" id="s6v" value="${esc(s6.vmsg)}" autocomplete="off" ${s6.sig ? "" : "disabled"}></div>
+    <p class="summary" id="s6res"></p></div>
+  <p class="note">${t("s6n")}</p>`;
+  paint6priv();
+  $("s6show").addEventListener("click", e => { s6.showPriv = !s6.showPriv; e.target.textContent = s6.showPriv ? t("hide") : t("show"); paint6priv(); });
+  $("s6new").addEventListener("click", async () => { s6.me = await genKeys(); s6.sig = null; s6.vmsg = ""; if (cur === 6) renderStep(); });
+  $("s6m").addEventListener("input", e => { s6.msg = e.target.value; });
+  $("s6sign").addEventListener("click", async () => {
+    s6.sig = await signMsg(s6.me, s6.msg); s6.vmsg = s6.msg;
+    $("s6sig").textContent = short(s6.sig, 32, 12);
+    const v = $("s6v"); v.disabled = false; v.value = s6.vmsg; check6();
+  });
+  $("s6v").addEventListener("input", e => { s6.vmsg = e.target.value; check6(); });
+  check6();
+}
+function paint6priv() { const e = $("s6priv"); if (e) e.textContent = s6.showPriv ? s6.me.privHex : "•".repeat(32); }
+async function check6() {
+  const r = $("s6res"); if (!r) return;
+  if (!s6.sig) { r.textContent = ""; return; }
+  const m = s6.vmsg, ok = await verifyMsg(s6.me, m, s6.sig);
+  if (m !== s6.vmsg || !$("s6res")) return;
+  r.className = "summary " + (ok ? "ok" : "bad");
+  r.textContent = ok ? T[lang].sigOk(short(s6.me.addr, 8, 4)) : t("sigBad");
+}
+
+/* Step 7: transactions */
+const USERS = ["Alice", "Bob", "Carol"];
+const START = { Alice: 10, Bob: 5, Carol: 0 };
+const s7 = { keys: {}, bal: { ...START }, pool: [], blocks: [], form: { from: "Alice", to: "Bob", amount: 3, signer: "Alice" }, msg: null };
+function scene7(el) {
+  if (!ready) { el.innerHTML = `<p class="note">${t("preparing")}</p>`; return; }
+  const f = s7.form;
+  const opts = sel => USERS.map(u => `<option value="${u}" ${u === sel ? "selected" : ""}>${u}</option>`).join("");
+  el.innerHTML = `<div class="stats">${USERS.map(u => `<div class="stat"><span>${u} · ${short(s7.keys[u].addr, 6, 4)}</span><b>${s7.bal[u]}</b></div>`).join("")}</div>
+  <div class="txform">
+    <div class="field"><label class="lbl" for="t7f">${t("from")}</label><select id="t7f">${opts(f.from)}</select></div>
+    <div class="field"><label class="lbl" for="t7t">${t("to")}</label><select id="t7t">${opts(f.to)}</select></div>
+    <div class="field"><label class="lbl" for="t7a">${t("amount")}</label><input type="number" id="t7a" min="1" step="1" value="${f.amount}" inputmode="numeric"></div>
+    <div class="field"><label class="lbl" for="t7s">${t("signWith")}</label><select id="t7s">${opts(f.signer)}</select></div>
+  </div>
+  <div class="pbtns"><button type="button" class="primary" id="t7send">${t("send")}</button></div>
+  <p class="summary" id="t7msg"></p>
+  <div class="field"><div class="lbl">${t("mempool")}</div><div id="t7pool"></div></div>
+  <div class="pbtns"><button type="button" class="primary" id="t7mine">${t("mineTx")}</button><button type="button" class="ghost" id="t7reset">${t("reset")}</button></div>
+  <div class="field"><div class="lbl">${t("history")}</div><div id="t7hist"></div></div>
+  <p class="note">${t("s7n")}</p>`;
+  const bind = (id, key, num) => $(id).addEventListener("input", e => { f[key] = num ? Number(e.target.value) : e.target.value; if (key === "from") { f.signer = f.from; $("t7s").value = f.from; } });
+  bind("t7f", "from"); bind("t7t", "to"); bind("t7a", "amount", true); bind("t7s", "signer");
+  $("t7send").addEventListener("click", send7);
+  $("t7mine").addEventListener("click", mine7);
+  $("t7reset").addEventListener("click", () => { s7.bal = { ...START }; s7.pool = []; s7.blocks = []; s7.msg = null; renderStep(); });
+  paint7();
+}
+function setMsg7(ok, k, ...a) { s7.msg = { ok, k, a }; paint7(); }
+async function send7() {
+  const f = s7.form;
+  if (f.from === f.to) return setMsg7(false, "sentSelf");
+  if (!(f.amount > 0)) return setMsg7(false, "sentAmount");
+  const text = `${f.from}->${f.to}:${f.amount}`;
+  const sig = await signMsg(s7.keys[f.signer], text);
+  const ok = await verifyMsg(s7.keys[f.from], text, sig);
+  if (!ok) return setMsg7(false, "sentForged", f.signer, f.from);
+  s7.pool.push({ from: f.from, to: f.to, amount: f.amount, sig });
+  setMsg7(true, "sentOk");
+}
+function mine7() {
+  if (!s7.pool.length) return setMsg7(false, "noTx");
+  const res = s7.pool.map(tx => {
+    const ok = s7.bal[tx.from] >= tx.amount;
+    if (ok) { s7.bal[tx.from] -= tx.amount; s7.bal[tx.to] += tx.amount; }
+    return { ...tx, ok };
+  });
+  s7.blocks.unshift({ n: s7.blocks.length + 1, txs: res });
+  s7.pool = []; s7.msg = null;
+  renderStep();
+}
+function paint7() {
+  if (!$("t7pool")) return;
+  const m = $("t7msg");
+  if (s7.msg) { const v = T[lang][s7.msg.k]; m.className = "summary " + (s7.msg.ok ? "ok" : "bad"); m.textContent = typeof v === "function" ? v(...s7.msg.a) : v; } else m.textContent = "";
+  $("t7pool").innerHTML = s7.pool.length ? `<ul class="txlist">${s7.pool.map(x => `<li><span>${x.from} → ${x.to}: ${x.amount}</span><span class="hash sm prev">sig ${short(x.sig, 8, 4)}</span></li>`).join("")}</ul>` : `<p class="note">${t("emptyPool")}</p>`;
+  $("t7hist").innerHTML = s7.blocks.length ? s7.blocks.map(b => `<div class="txblock"><b>${T[lang].blockOf(b.n, b.txs.length)}</b><ul class="txlist">${b.txs.map(x => `<li class="${x.ok ? "in" : "out"}"><span>${x.from} → ${x.to}: ${x.amount}</span><span>${x.ok ? t("included") : t("rejectedFunds")}</span></li>`).join("")}</ul></div>`).join("") : `<p class="note">—</p>`;
+}
+
+/* Step 8: unique words */
+const s8 = { reg: [], word: "", as: "you", msg: null };
+const ownerName = o => o === "you" ? t("you") : o;
+function normWord(w) {
+  const s = w.normalize("NFKC").trim().toLowerCase();
+  const lat = /[a-z]/.test(s), cyr = /[а-яё]/.test(s);
+  if (lat && cyr) return { err: "mixed" };
+  if (!/^[a-z0-9-]{3,20}$/.test(s) && !/^[а-яё0-9-]{3,20}$/.test(s)) return { err: "badWord" };
+  return { w: s };
+}
+async function claim8(raw, owner) {
+  const r = normWord(raw);
+  if (r.err) { s8.msg = { ok: false, k: r.err, a: [] }; return; }
+  const ex = s8.reg.find(x => x.w === r.w);
+  if (ex) { s8.msg = { ok: false, k: "taken", a: [r.w, ex.owner] }; return; }
+  const id = await sha256(r.w);
+  s8.reg.push({ w: r.w, id, owner });
+  s8.msg = { ok: true, k: "claimed", a: [r.w, owner] };
+}
+function scene8(el) {
+  if (!ready) { el.innerHTML = `<p class="note">${t("preparing")}</p>`; return; }
+  const owners = ["you", ...USERS];
+  const opts = sel => owners.map(o => `<option value="${o}" ${o === sel ? "selected" : ""}>${ownerName(o)}</option>`).join("");
+  el.innerHTML = `<div class="txform">
+    <div class="field"><label class="lbl" for="w8">${t("word")}</label><input type="text" id="w8" value="${esc(s8.word)}" autocomplete="off" spellcheck="false"></div>
+    <div class="field"><label class="lbl" for="w8as">${t("claimAs")}</label><select id="w8as">${opts(s8.as)}</select></div>
+  </div>
+  <div class="pbtns"><button type="button" class="primary" id="w8go">${t("claim")}</button>
+    <span class="lbl" style="align-self:center">${t("tryThese")}</span>
+    <button type="button" class="ghost" data-try="Satoshi">Satoshi</button>
+    <button type="button" class="ghost" data-try="p&#1072;ypal">pаypal</button>
+    <button type="button" class="ghost" data-try="chainlab">chainlab</button></div>
+  <p class="summary" id="w8msg"></p>
+  <div class="tblwrap"><table class="tbl"><thead><tr><th>${t("thWord")}</th><th>${t("thId")}</th><th>${t("thOwner")}</th></tr></thead>
+  <tbody>${s8.reg.map((x, i) => `<tr><td>${esc(x.w)}</td><td>#${x.id.slice(0, 12)}</td><td><select data-own="${i}" aria-label="${t("thOwner")}">${opts(x.owner)}</select></td></tr>`).join("")}</tbody></table></div>
+  <p class="note">${t("transferNote")}</p>
+  <p class="note">${t("s8n")}</p>`;
+  const m = $("w8msg");
+  if (s8.msg) { const v = T[lang][s8.msg.k]; m.className = "summary " + (s8.msg.ok ? "ok" : "bad"); m.textContent = typeof v === "function" ? v(s8.msg.a[0], ownerName(s8.msg.a[1])) : v; }
+  $("w8").addEventListener("input", e => { s8.word = e.target.value; });
+  $("w8as").addEventListener("input", e => { s8.as = e.target.value; });
+  $("w8go").addEventListener("click", async () => { await claim8(s8.word, s8.as); renderStep(); });
+  el.querySelectorAll("[data-try]").forEach(b => b.addEventListener("click", async () => { s8.word = b.dataset.try; await claim8(s8.word, s8.as); renderStep(); }));
+  el.querySelectorAll("[data-own]").forEach(s => s.addEventListener("input", e => { s8.reg[Number(s.dataset.own)].owner = e.target.value; }));
+}
+
+async function initCourse() {
+  s6.me = await genKeys();
+  for (const u of USERS) s7.keys[u] = await genKeys();
+  await claim8("satoshi", "Alice"); await claim8("moon", "Bob"); s8.msg = null;
+  s2.prev = await sha256("genesis");
+  if (cur === 2) renderStep();
+  s3.chain = await mineChain(s3.blocks);
+  s3.pristine = s3.blocks.map(b => ({ ...b }));
+  s5.peers = ["A", "B", "C"].map(() => {
+    const blocks = s3.pristine.slice(0, 3).map(b => ({ ...b }));
+    return { blocks, chain: s3.chain.slice(0, 3).map(c => ({ ...c })) };
+  });
+  ready = true;
+  if (cur >= 3) renderStep();
+}
+
+applyLang();
+update(false);
+initCourse();
+</script>
+</body>
+</html>

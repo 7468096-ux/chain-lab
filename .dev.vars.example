@@ -1,0 +1,2 @@
+# Copy to .dev.vars for `npm run pages:dev`. Any Ethereum mainnet JSON-RPC endpoint works.
+ETH_RPC_URL=https://ethereum-rpc.publicnode.com

@@ -1,0 +1,4 @@
+# "/" is not a redirect rule: functions/index.ts picks /en/ or /ru/ by Accept-Language.
+# Old single-page links to the prototype go to the English page.
+/chainlab-prototype.html  /en/  301
+/index.html               /     301

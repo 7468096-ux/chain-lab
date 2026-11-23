@@ -1,0 +1,9 @@
+node_modules
+dist
+.wrangler
+.dev.vars
+*.local
+dist-ssr
+.claude/
+BRIEF.md
+*.tsbuildinfo
